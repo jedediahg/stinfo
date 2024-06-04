@@ -22,19 +22,25 @@ void print_json(const char* json, int prettify) {
     }
 
     int indentTab = 0;
+    int inQuote = 0; // Flag to check if inside a quote
+
     for (int i = 0; json[i] != '\0'; i++) {
-        if (json[i] == '{') {
+        if (json[i] == '"') {
+            inQuote = !inQuote; // Toggle inQuote flag
+            putchar(json[i]);
+        }
+        else if (json[i] == '{' && !inQuote) {
             printf("{\n");
             indentTab++;
             for (int j = 0; j < indentTab; j++) printf("   ");
         }
-        else if (json[i] == '}') {
+        else if (json[i] == '}' && !inQuote) {
             indentTab--;
             printf("\n");
             for (int j = 0; j < indentTab; j++) printf("   ");
             printf("}");
         }
-        else if (json[i] == ',') {
+        else if (json[i] == ',' && !inQuote) {
             printf(",\n");
             for (int j = 0; j < indentTab; j++) printf("   ");
         }
@@ -45,7 +51,7 @@ void print_json(const char* json, int prettify) {
     printf("\n");
 }
 
-void print_metadata(const char* json, int prettify) {
+void extract_metadata(const char* json, char* metadata) {
     const char* metadata_start = strstr(json, "\"__metadata__\"");
     if (!metadata_start) {
         printf("No __metadata__ object found.\n");
@@ -53,44 +59,30 @@ void print_metadata(const char* json, int prettify) {
     }
 
     int braces = 0;
-    int indentTab = 1;  // Start with an indentation level of 1 for the __metadata__ object
-    int i = 0;
+    int i = 0, j = 0;
 
-    // Print the opening brace of the JSON object
-    printf("{\n   ");
-    while (metadata_start[i] != '\0') {
-        putchar(metadata_start[i]);
+    // Adjust the starting point to the beginning of the metadata object
+    while (metadata_start[i] != '{' && metadata_start[i] != '\0') {
+        i++;
+    }
+
+    if (metadata_start[i] == '{') {
+        braces++;
+        metadata[j++] = '{';
+        i++;
+    }
+
+    while (metadata_start[i] != '\0' && braces > 0) {
+        metadata[j++] = metadata_start[i];
         if (metadata_start[i] == '{') {
             braces++;
-            if (prettify) {
-                printf("\n");
-                indentTab++;
-                for (int j = 0; j < indentTab; j++) printf("   ");
-            }
         }
         else if (metadata_start[i] == '}') {
             braces--;
-            if (braces == 0) {
-                if (prettify) {
-                    printf("\n   ");
-                }
-                putchar('}');
-                break;
-            }
-            if (prettify) {
-                printf("\n");
-                indentTab--;
-                for (int j = 0; j < indentTab; j++) printf("   ");
-            }
-        }
-        else if (metadata_start[i] == ',' && prettify) {
-            printf(",\n");
-            for (int j = 0; j < indentTab; j++) printf("   ");
         }
         i++;
     }
-    // Print the closing brace of the JSON object
-    printf("\n}\n");
+    metadata[j] = '\0';
 }
 
 int main(int argc, char* argv[]) {
@@ -171,7 +163,15 @@ int main(int argc, char* argv[]) {
 
     // Print the JSON header or metadata
     if (metadata) {
-        print_metadata(json_header, prettify);
+        char* metadata_json = (char*)malloc(MAX_JSON_SIZE);
+        if (metadata_json == NULL) {
+            perror("Memory allocation error");
+            free(json_header);
+            return 1;
+        }
+        extract_metadata(json_header, metadata_json);
+        print_json(metadata_json, prettify);
+        free(metadata_json);
     }
     else {
         print_json(json_header, prettify);
