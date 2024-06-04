@@ -34,5 +34,5 @@ To compile the program, you can use GCC:
 ```sh
 gcc stinfo.c -o stinfo
 
-License
+## License
 This project is licensed under the MIT License.
